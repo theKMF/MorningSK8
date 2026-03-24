@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#e8500a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MSK8">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <title>MorningSK8 — Will the park be dry?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Emoji&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <style>
+    @font-face {
+      font-family: 'Caprasimo';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('./caprasimo.ttf') format('truetype');
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { overscroll-behavior: none; }
+
+    :root {
+      /* Colors */
+      --bg: #f4f2ee;
+      --card: #ffffff;
+      --card2: #eceae6;
+      --accent: #e8500a;
+      --text: #1a1a1a;
+      --text-mid: #555;
+      --text-dim: #888;
+      --border: #d0ccc7;
+      --border-light: #ddd;
+      --border-faint: #f0eeea;
+      --hover-bg: #f9f7f4;
+      --success: #17a258;
+      --danger: #c0392b;
+
+      /* Typography */
+      --font: 'Courier New', Courier, monospace, 'Noto Emoji';
+      --font-cap: 'Caprasimo', cursive;
+      --font-emoji: 'Noto Emoji', sans-serif;
+      --fs-xs: 0.48rem;
+      --fs-sm: 0.56rem;
+      --fs-md: 0.72rem;
+      --fs-base: 0.82rem;
+      --fs-lg: 0.9rem;
+      --fs-xl: 1rem;
+
+      /* Spacing */
+      --sp-xs: 4px;
+      --sp-sm: 8px;
+      --sp-md: 12px;
+      --sp-lg: 16px;
+      --sp-xl: 20px;
+      --sp-2xl: 24px;
+
+      /* Radii */
+      --r-sm: 4px;
+      --r-md: 6px;
+      --r-lg: 8px;
+      --r-xl: 12px;
+      --r-pill: 20px;
+      --r-full: 50%;
+
+      /* Badge shape */
+      --badge-r: 50%;
+      --badge-clip: none;
+    }
+    body.cf-mode {
+      --badge-r: 0;
+      --badge-clip: polygon(0% 0%, 100% 0%, 100% 80%, 80% 100%, 0% 100%);
+    }
+    body.cf-mode .sp,
+    body.cf-mode .badge,
+    body.cf-mode .bd-final-icon,
+    body.cf-mode .legend-dot {
+      align-items: flex-start; justify-content: flex-start;
+      padding: 3px 0 0 4px;
+      font-size: 75%;
+    }
+    body.cf-mode .slot-score-badge {
+      align-items: center; justify-content: center;
+      padding: 0;
+      font-size: 2.4rem;
+    }
+    body.cf-mode .bd-final-score {
+      align-items: flex-start; justify-content: flex-start;
+      padding: 2px 0 0 4px;
+      font-size: 1rem;
+    }
+    #cfCanvas {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 0; display: none;
+    }
+    body.cf-mode { background: #FFE500; }
+    body.cf-mode #cfCanvas { display: block; }
+    body.cf-mode .wrap { position: relative; z-index: 1; }
+    body.cf-mode .day-row {
+      margin-bottom: 18px; overflow: visible; position: relative;
+      background: transparent; box-shadow: none;
+    }
+    body.cf-mode .day-row::before {
+      content: ''; position: absolute;
+      top: 5px; left: 5px; right: -5px; bottom: -5px;
+      background: url('./rasters/diagonal.png') repeat;
+      background-size: 8px 8px;
+      clip-path: polygon(0% 0%, 100% 0%, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0% 100%);
+    }
+    body.cf-mode .day-row::after {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--card);
+      clip-path: polygon(0% 0%, 100% 0%, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0% 100%);
+    }
+    body.cf-mode .day-row > * { position: relative; z-index: 1; }
+    body.cf-mode .next-time { color: #FF00FF; }
+    body.cf-mode .tagline,
+    body.cf-mode #locDisplay,
+    body.cf-mode #locChipName { color: #000 !important; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100dvh;
+      padding: var(--sp-lg);
+      overscroll-behavior-y: none;
+    }
+
+    /* ── Shared utilities ── */
+    .flex-center { display: flex; align-items: center; justify-content: center; }
+    .uppercase { letter-spacing: 2px; text-transform: uppercase; }
+    .circle { border-radius: var(--r-full); display: flex; align-items: center; justify-content: center; }
+    .section-label { font-size: var(--fs-md); letter-spacing: 2px; text-transform: uppercase; font-weight: bold; color: var(--text); }
+
+    /* ── Shared button bases ── */
+    .btn-base {
+      font-family: inherit; font-weight: bold; cursor: pointer;
+      border: none; transition: all 0.15s;
+    }
+    .btn-base:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; padding: 13px; border-radius: var(--r-md); font-size: var(--fs-lg); }
+    .btn-outline { background: none; border: 2px solid var(--text); color: var(--text); padding: 13px; border-radius: var(--r-md); font-size: var(--fs-lg); }
+    .btn-outline:hover { background: var(--text); color: #fff; }
+    .btn-ghost { background: none; border: none; color: var(--text-mid); padding: var(--sp-sm); }
+
+    .wrap {
+      max-width: 480px; margin: 0 auto;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .wrap.pulling { transition: none; }
+
+    /* ── Pull-to-refresh indicator ── */
+    #ptr {
+      position: fixed; top: 14px; left: 50%;
+      transform: translateX(-50%) scale(0);
+      width: 36px; height: 36px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-full); display: flex;
+      align-items: center; justify-content: center;
+      font-size: var(--fs-xl); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.2s; z-index: 300;
+      pointer-events: none; color: var(--text);
+    }
+    #ptr.show  { transform: translateX(-50%) scale(1); }
+    #ptr.ready { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    header { text-align: center; padding: 34px 0 10px; margin-bottom: -20px; }
+    .next-time { font-family: var(--font-cap); font-size: 2.4rem; font-weight: 400; color: var(--accent); letter-spacing: -1px; line-height: 1; margin-top: var(--sp-xs); }
+    .tagline { font-size: 0.62rem; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
+
+    /* ── Initial controls ── */
+    .ctrl { text-align: center; margin: 22px 0 0; }
+    .btn {
+      background: var(--accent); color: #000; border: none;
+      padding: 13px 26px; font-family: inherit; font-size: 0.92rem;
+      font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer; transition: filter 0.15s;
+    }
+    .btn:hover:not(:disabled) { filter: brightness(1.12); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Loc chip ── */
+    #locDisplay { display: none; }
+    .loc-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: none; border: 1px solid var(--border);
+      padding: 5px 13px 5px 10px; border-radius: var(--r-pill);
+      font-family: inherit; font-size: var(--fs-md); color: var(--text-mid);
+      cursor: pointer; transition: background 0.12s;
+    }
+    .loc-chip:hover { background: var(--card2); }
+    .loc-chip .chevron { font-size: var(--fs-sm); color: var(--text-mid); transition: transform 0.2s; }
+    .loc-chip.open .chevron { transform: rotate(180deg); }
+    .loc-row { display: inline-flex; align-items: center; gap: 10px; }
+    .admin-badge { font-size: 0.52rem; letter-spacing: 2px; text-transform: uppercase; font-weight: 900; color: var(--accent); border: 1.5px solid var(--accent); border-radius: 3px; padding: 1px 5px; }
+
+    /* ── Theme picker ── */
+    .theme-group { display: flex; gap: 0; border-radius: var(--r-md); overflow: hidden; border: 1.5px solid #ccc; }
+    .theme-btn {
+      flex: 1; padding: 5px var(--sp-sm); border: none; background: var(--card); color: var(--text);
+      font-family: inherit; font-size: 0.6rem; font-weight: bold; letter-spacing: 0.5px;
+      cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;
+    }
+    .theme-btn + .theme-btn { border-left: 1.5px solid #ccc; }
+    .theme-btn.active { background: var(--text); color: #fff; }
+
+    /* ── Search ── */
+    .search-wrap { position: relative; margin-top: var(--sp-md); }
+    .search-row { display: flex; }
+    .search-input {
+      flex: 1; padding: 10px var(--sp-md);
+      font-family: inherit; font-size: var(--fs-base);
+      border: 1px solid var(--border); border-right: none;
+      background: var(--card); color: var(--text); outline: none;
+    }
+    .search-input:focus { border-color: #aaa; }
+    .search-input::placeholder { color: var(--text-dim); }
+    .search-btn {
+      background: var(--text); color: #fff; border: none;
+      padding: 10px 14px; font-family: inherit; font-size: 0.78rem;
+      font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .search-btn:hover { background: #333; }
+    .search-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .search-results {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+      background: var(--card); border: 1px solid var(--border); border-top: none; display: none;
+    }
+    .search-results.open { display: block; }
+    .search-result-item {
+      padding: 10px 13px; font-size: 0.76rem; cursor: pointer;
+      border-bottom: 1px solid var(--border-faint); color: var(--text); line-height: 1.4;
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--hover-bg); }
+    .search-result-item .sri-name  { font-weight: bold; }
+    .search-result-item .sri-extra { color: var(--text-mid); font-size: 0.67rem; margin-top: 1px; }
+
+    .status-row { font-size: var(--fs-md); color: var(--text); text-align: center; margin-top: 10px; min-height: 18px; }
+    .err-row    { font-size: var(--fs-md); color: var(--danger); text-align: center; margin-top: var(--sp-sm); }
+
+    /* ── Source pills ── */
+    .sources-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .src-pill {
+      font-size: var(--fs-sm); letter-spacing: 1px; text-transform: uppercase;
+      padding: 3px var(--sp-sm); border-radius: 2px; font-weight: bold;
+    }
+    .src-pill.ok   { background: #e8f5e9; color: #2a6e30; border: 1px solid #a5d6a7; }
+    .src-pill.fail { background: #f5f5f5; color: #bbb; border: 1px solid #e0e0e0; text-decoration: line-through; }
+
+    /* ── Settings gear button ── */
+    #settingsBtn {
+      position: fixed; top: 14px; right: 14px; z-index: 200;
+      width: 36px; height: 24px; border-radius: var(--r-lg);
+      background: none; border: none;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0;
+    }
+    #settingsBtn img { width: 18px; height: auto; opacity: 0.45; }
+    #settingsBtn:hover img { opacity: 0.7; }
+
+    /* ── Overlay (shared by settings) ── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+      z-index: 9000; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .overlay.open { opacity: 1; pointer-events: auto; }
+
+    /* ── Slide panel ── */
+    .slide-panel {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(360px, 88vw); z-index: 9001;
+      background: var(--bg); box-shadow: none;
+      transform: translateX(100%);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: var(--sp-xl) var(--sp-xl) 40px;
+    }
+    .slide-panel.open { transform: translateX(0); box-shadow: -4px 0 24px rgba(0,0,0,0.15); }
+    .slide-panel.closing { transition: transform 0.18s cubic-bezier(0.55, 0, 1, 0.45); }
+    #settingsPanelTool {
+      position: absolute; bottom: var(--sp-xl); right: var(--sp-xl);
+      width: 66px; height: auto; opacity: 1;
+      pointer-events: none; mix-blend-mode: multiply;
+    }
+
+    .settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--sp-2xl);
+    }
+    .settings-title { font-size: 0.68rem; letter-spacing: 2px; text-transform: uppercase; font-weight: 900; color: var(--text); }
+    .settings-close {
+      background: none; border: none; font-family: inherit;
+      font-size: 0.68rem; letter-spacing: 1px; color: var(--text-mid);
+      cursor: pointer; padding: 6px 10px;
+    }
+    .settings-close:hover { color: var(--text); }
+    .settings-section { margin-bottom: var(--sp-2xl); }
+    .settings-section-title { font-size: var(--fs-sm); letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: bold; margin-bottom: 10px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-sm) 0; }
+    .settings-row-label { font-size: var(--fs-md); color: var(--text); font-weight: bold; }
+    .settings-info { display: none; }
+
+    /* ── Score guide ── */
+    .score-toggle {
+      display: block; text-align: center; margin-top: var(--sp-xl);
+      font-size: 0.62rem; color: var(--text-mid); cursor: pointer;
+      text-decoration: underline; text-underline-offset: 3px;
+      background: none; border: none; font-family: inherit; letter-spacing: 1px;
+    }
+    .score-toggle:hover { color: #666; }
+    .info-box { display: none; }
+
+    #results { margin-top: 6px; position: relative; z-index: 201; }
+
+    /* ── Week accordion ── */
+    .day-row {
+      background: var(--card); margin-bottom: 5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07); overflow: hidden;
+    }
+    .day-row-head {
+      display: flex; align-items: center; padding: 13px var(--sp-lg);
+      cursor: pointer; gap: 10px; user-select: none; transition: background 0.1s;
+    }
+    .day-row-head:hover { background: var(--hover-bg); }
+    .day-name  { font-weight: bold; font-size: var(--fs-lg); min-width: 78px; }
+    .day-date  { font-weight: bold; font-size: var(--fs-lg); color: var(--text); flex: 1; }
+    .score-span { display: flex; align-items: center; gap: 5px; }
+    .sp { width: 24px; height: 24px; border-radius: var(--badge-r); clip-path: var(--badge-clip); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 900; color: #fff; flex-shrink: 0; padding: 5px; }
+    .sp-warn { width: 28px; height: 28px; font-size: var(--fs-lg); font-weight: normal; font-family: var(--font-emoji); }
+    .sp-surfer { font-size: 1.3rem; font-family: var(--font-emoji); line-height: 1; }
+    .sp-dash { font-size: 0.65rem; color: var(--text-dim); }
+    .day-badge {
+      font-size: 0.52rem; letter-spacing: 1.5px; text-transform: uppercase;
+      background: var(--accent); color: #fff; padding: 2px 6px; border-radius: 2px;
+    }
+    .day-chevron { font-size: 0.65rem; color: var(--text-mid); transition: transform 0.2s; margin-left: var(--sp-xs); flex-shrink: 0; }
+    .day-row.open .day-chevron { transform: rotate(180deg); }
+
+    /* ── Score bar ── */
+    .day-bar-wrap { position: relative; padding-bottom: 14px; }
+    .day-bar { display: flex; height: 12px; }
+    .day-bar-seg { flex: 1; }
+    .day-bar-tick {
+      position: absolute; top: 0; width: 1px; height: 12px;
+      background: rgba(255,255,255,0.75); pointer-events: none;
+    }
+    .day-bar-tick-lbl {
+      position: absolute; top: 14px; font-size: var(--fs-xs); color: var(--text-mid);
+      transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+    }
+
+    .day-slots {
+      padding: 0 var(--sp-sm); overflow: hidden;
+      max-height: 0; opacity: 0;
+      transition: max-height 0.15s ease-in, opacity 0.1s ease-in, padding 0.15s ease-in;
+    }
+    .day-row.open .day-slots {
+      padding: 0 var(--sp-sm) var(--sp-sm); opacity: 1;
+      max-height: 2000px;
+      transition: max-height 0.6s linear, opacity 0.4s ease-in, padding 0.5s linear;
+    }
+
+    /* ── Time cards ── */
+    .card {
+      display: flex; align-items: center; gap: var(--sp-md);
+      background: var(--hover-bg); margin-bottom: var(--sp-xs);
+      padding: 10px var(--sp-md); border-left: 4px solid var(--border);
+    }
+    .card-time  { font-size: 0.95rem; font-weight: bold; color: #666; min-width: 48px; flex-shrink: 0; }
+    .badge      { width: 30px; height: 30px; border-radius: var(--badge-r); clip-path: var(--badge-clip); display: flex; align-items: center; justify-content: center; font-size: 0.92rem; font-weight: 900; flex-shrink: 0; padding: 5px; }
+    .card-body  { flex: 1; min-width: 0; }
+    .card-label { font-size: 0.8rem; font-weight: bold; }
+    .card-meta  { font-size: 0.6rem; color: var(--text); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sunrise-tag { color: #c08000; font-size: 0.57rem; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* ── Info box ── */
+    .info-box { background: var(--card2); margin-top: var(--sp-xl); padding: var(--sp-lg); font-size: 0.64rem; line-height: 1.8; color: var(--text); border: 1px solid var(--border-light); }
+    .info-title { font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase; color: var(--text); margin-bottom: var(--sp-md); }
+    .legend { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 14px; }
+    .legend-item { text-align: center; }
+    .legend-dot { width: 26px; height: 26px; border-radius: var(--badge-r); clip-path: var(--badge-clip); font-size: 0.78rem; font-weight: 900; margin: 0 auto var(--sp-xs); }
+    .legend-lbl { font-size: var(--fs-sm); color: var(--text); line-height: 1.3; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #ccc; border-top-color: var(--accent); border-radius: var(--r-full); animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 5px; }
+
+    /* ── Splash screen ── */
+    #splash {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--accent);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease; user-select: none;
+    }
+    #splash.gone { opacity: 0; pointer-events: none; }
+    .splash-sk8  { font-size: 5.5rem; line-height: 1; margin-bottom: var(--sp-lg); }
+    .splash-name { font-family: var(--font); font-size: 4rem; font-weight: 900; color: #fff; letter-spacing: -4px; line-height: 1; }
+    .splash-tag  { font-size: 0.58rem; letter-spacing: 3.5px; text-transform: uppercase; color: rgba(255,255,255,0.62); margin-top: 14px; }
+
+    /* ── Offline screen ── */
+    #offlineScreen { display: none; padding: 60px var(--sp-2xl) 32px; text-align: center; }
+    .offline-icons { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 22px; }
+    .offline-emoji { font-size: 3.4rem; line-height: 1; }
+    .offline-msg   { font-size: 0.88rem; color: var(--text); line-height: 2; }
+
+    /* ── Bottom sheet modal (shared pattern) ── */
+    .modal-sheet {
+      position: fixed; inset: 0;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(0,0,0,0);
+      pointer-events: none;
+      transition: background 0.35s ease-out;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .modal-sheet.open { pointer-events: auto; background: rgba(0,0,0,0.6); }
+    .modal-sheet.closing { transition: background 0.15s ease-in; background: rgba(0,0,0,0); }
+    .modal-sheet-body {
+      background: var(--card); border-radius: var(--sp-lg) var(--sp-lg) 0 0;
+      width: min(480px, 100vw); max-height: 90vh;
+      overflow-y: auto; padding: 28px var(--sp-2xl) 36px;
+      transform: translateY(100%);
+      transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .modal-sheet.open .modal-sheet-body { transform: translateY(0); }
+    .modal-sheet.closing .modal-sheet-body { transform: translateY(100%); transition: transform 0.15s ease-in; }
+
+    /* ── Slot detail ── */
+    #slotModal { z-index: 9997; }
+    .slot-header { display: flex; align-items: center; gap: var(--sp-lg); margin-bottom: var(--sp-xl); }
+    .slot-score-badge {
+      width: 64px; height: 64px; border-radius: var(--badge-r); clip-path: var(--badge-clip);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 900; flex-shrink: 0; padding: 5px;
+    }
+    .slot-header-text { flex: 1; }
+    .slot-time  { font-size: 1.6rem; font-weight: 900; line-height: 1; }
+    .slot-label { font-size: var(--fs-xl); font-weight: bold; margin-top: var(--sp-xs); }
+    .slot-wx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-sm); margin-bottom: var(--sp-xl); }
+    .slot-wx-cell { background: var(--card2); border-radius: var(--r-lg); padding: 10px var(--sp-md); }
+    .slot-wx-key { font-size: var(--fs-md); letter-spacing: 1px; text-transform: uppercase; color: var(--text); font-weight: bold; margin-bottom: 3px; }
+    .slot-wx-val { font-size: var(--fs-xl); font-weight: bold; }
+
+    .breakdown-row {
+      display: flex; align-items: baseline; gap: var(--sp-sm);
+      padding: 9px 0; border-bottom: 1px solid #d8d5d0; font-size: var(--fs-lg);
+    }
+    .breakdown-row:last-child { border-bottom: none; }
+    .bd-label { flex: 1; font-weight: bold; color: var(--text); }
+    .bd-note  { font-size: 0.78rem; color: #444; }
+    .bd-delta { min-width: 42px; text-align: right; font-weight: bold; font-size: 0.95rem; }
+    .bd-delta.pos  { color: var(--success); }
+    .bd-delta.neg  { color: var(--danger); }
+    .bd-delta.zero { color: var(--text-mid); }
+    .bd-total { min-width: 28px; text-align: right; font-size: var(--fs-base); color: var(--text-mid); font-weight: bold; }
+    .breakdown-final {
+      margin-top: var(--sp-lg); padding: 14px; background: var(--card2);
+      border-radius: var(--r-lg); display: flex; align-items: center; justify-content: space-between;
+    }
+    .bd-final-label { font-size: var(--fs-lg); font-weight: bold; color: var(--text); }
+    .bd-final-icon  { width: 40px; height: 40px; border-radius: var(--badge-r); clip-path: var(--badge-clip); background: #f5f5f5; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; padding: 5px; }
+    .bd-final-score { width: 40px; height: 40px; border-radius: var(--badge-r); clip-path: var(--badge-clip); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 900; padding: 5px; }
+    /* ── Slot action buttons (report, close, save) ── */
+    .slot-report-btn { width: 100%; margin-top: var(--sp-md); }
+    .slot-close-btn  { width: 100%; margin-top: var(--sp-xl); }
+
+    /* ── Observation sheet ── */
+    .obs-sheet { margin-top: var(--sp-lg); }
+    .obs-btns { display: flex; gap: 10px; margin-bottom: var(--sp-lg); }
+    .obs-btn {
+      flex: 1; padding: 14px var(--sp-sm); border: 2px solid var(--border-light); border-radius: var(--r-lg);
+      background: #f5f5f5; font-family: var(--font-emoji); font-size: 1.4rem;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      transition: all 0.2s;
+    }
+    .obs-btn span { font-family: var(--font); font-size: var(--fs-md); font-weight: bold; color: var(--text); }
+    .obs-btn.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .obs-btn.selected span { color: #fff; }
+    .obs-detail { display: none; margin-bottom: var(--sp-lg); }
+    .obs-detail.show { display: block; }
+    .obs-detail-title { font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold; color: var(--text); margin-bottom: 10px; }
+
+    /* ── Selectable button rows (score, conditions) ── */
+    .select-row { display: flex; gap: var(--sp-sm); margin-bottom: 14px; }
+    .select-btn {
+      flex: 1; border: 2px solid var(--border-light); border-radius: var(--r-lg);
+      background: #f5f5f5; font-weight: bold; color: var(--text);
+      cursor: pointer; transition: all 0.2s; font-family: inherit; text-align: center;
+    }
+    .select-btn.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--text); }
+    .obs-score-btn { height: 40px; font-size: var(--fs-xl); font-weight: 900; }
+    .obs-condition-btn { padding: var(--sp-sm) var(--sp-xs); font-size: 0.65rem; border-width: 3px; }
+    .obs-condition-btn.selected { border-color: var(--accent); background: var(--accent); color: #fff; box-shadow: none; }
+
+    .obs-save-btn {
+      width: 100%; padding: 13px; border-radius: var(--r-md);
+      font-size: var(--fs-lg); opacity: 0.4; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .obs-save-btn.enabled { opacity: 1; pointer-events: auto; }
+    .obs-saved { margin-top: 14px; font-size: 0.8rem; font-weight: bold; color: var(--success); text-align: center; }
+
+    /* ── Share modal ── */
+    #shareModal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 9998;
+      align-items: center; justify-content: center;
+    }
+    #shareModal.open { display: flex; }
+    .share-box {
+      background: var(--card); border-radius: var(--r-xl);
+      padding: 32px 28px var(--sp-2xl); text-align: center;
+      width: min(340px, 90vw); box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+    }
+    .share-box h2 { font-size: 0.78rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 22px; }
+    #qrCanvas { border-radius: var(--r-lg); }
+    .share-url { font-size: 0.65rem; color: var(--text-mid); margin-top: 10px; word-break: break-all; }
+
+    /* ── Update banner ── */
+    #updateBanner {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--text); color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px var(--sp-xl); gap: var(--sp-md);
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 9999; font-size: var(--fs-base);
+    }
+    #updateBanner.visible { transform: translateY(0); }
+    #updateBanner span { flex: 1; }
+    #updateBanner button {
+      background: var(--accent); color: #fff; border: none;
+      padding: var(--sp-sm) var(--sp-lg); border-radius: var(--r-pill);
+      font-family: inherit; font-size: var(--fs-base);
+      font-weight: bold; cursor: pointer; white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Splash screen -->
+<div id="splash">
+  <div class="splash-sk8">🛹</div>
+  <div class="splash-name">MSK8</div>
+  <div class="splash-tag">Skatepark Dryness Forecast</div>
+</div>
+
+<!-- Pull-to-refresh indicator -->
+<div id="ptr">↓</div>
+
+<canvas id="cfCanvas"></canvas>
+<div class="wrap" id="mainWrap">
+
+  <header>
+    <div class="tagline">Next likely dry park</div>
+    <div class="next-time" id="nextSkateTime">—</div>
+  </header>
+
+  <!-- Initial state: GPS button + search -->
+  <div class="ctrl" id="initCtrl">
+    <button class="btn" id="locBtn" onclick="requestLocation()">📍 Use My Location</button>
+    <div class="search-wrap" id="searchWrap">
+      <div class="search-row">
+        <input class="search-input" id="searchInput" type="text" placeholder="or search a place…" autocomplete="off">
+        <button class="search-btn" id="searchBtn" onclick="doSearch()">Search</button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </div>
+
+  <!-- After load: location label -->
+  <div id="locDisplay" style="text-align:center;margin:14px 0 0">
+    <span id="locChipName" style="font-size:0.9rem;font-weight:bold;letter-spacing:1px;color:#888;text-transform:uppercase">—</span>
+  </div>
+
+  <div class="status-row" id="statusRow"></div>
+  <div class="err-row"    id="errRow"></div>
+
+  <div id="results"></div>
+
+  <!-- Offline screen -->
+  <div id="offlineScreen">
+    <div class="offline-icons">
+      <svg width="64" height="64" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10,44 Q50,4 90,44"   stroke="#d4d0cc" stroke-width="8" stroke-linecap="round"/>
+        <path d="M22,56 Q50,24 78,56"  stroke="#d4d0cc" stroke-width="8" stroke-linecap="round"/>
+        <path d="M34,68 Q50,46 66,68"  stroke="#d4d0cc" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="50" cy="83" r="7"  fill="#d4d0cc"/>
+        <line x1="12" y1="12" x2="88" y2="88" stroke="#e8500a" stroke-width="9" stroke-linecap="round"/>
+      </svg>
+      <div class="offline-emoji">😢</div>
+    </div>
+    <div class="offline-msg">I need internet<br>to check the weather.</div>
+  </div>
+
+</div>
+
+<button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings"><img src="./rasters/sliders.svg" alt="Settings"></button>
+
+<!-- Settings overlay + panel -->
+<div id="settingsOverlay" class="overlay" onclick="closeSettings()"></div>
+<div id="settingsPanel" class="slide-panel">
+  <div class="settings-header">
+    <span class="settings-title">Settings</span>
+    <button class="settings-close" onclick="closeSettings()">Close ✕</button>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Location</div>
+    <div id="settingsLoc">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="loc-chip" id="settingsLocChip" onclick="toggleLocSearch()" style="flex:1">
+          📍 <span id="settingsLocName">—</span> <span class="chevron">▼</span>
+        </button>
+        <img src="./rasters/tool2.svg" alt="" style="width:36px;height:auto;mix-blend-mode:multiply">
+      </div>
+      <div class="search-wrap" id="settingsLocSearch" style="display:none;margin-top:8px">
+        <div class="search-row">
+          <input class="search-input" id="settingsSearchInput" type="text" placeholder="Search a new place…" autocomplete="off">
+          <button class="search-btn" onclick="doSettingsLocSearch()">Go</button>
+        </div>
+        <div class="search-results" id="settingsSearchResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-row-label" style="margin-bottom:6px">Colour theme</div>
+    <div class="theme-group" id="themeGroup">
+      <button class="theme-btn active" data-theme="lava" onclick="setTheme('lava')">Lava</button>
+      <button class="theme-btn" data-theme="slime" onclick="setTheme('slime')">Slime</button>
+      <button class="theme-btn" data-theme="classic" onclick="setTheme('classic')">Classic</button>
+      <button class="theme-btn" data-theme="bw" onclick="setTheme('bw')">B&W</button>
+    </div>
+    <div class="settings-row-label" style="margin-top:14px;margin-bottom:6px">Badge shape</div>
+    <div class="theme-group" id="shapeGroup">
+      <button class="theme-btn active" data-shape="circle" onclick="setBadgeShape('circle')">Circle</button>
+      <button class="theme-btn" data-shape="cf" onclick="setBadgeShape('cf')">CF</button>
+    </div>
+    <span class="admin-badge" id="settingsAdminBadge" style="display:none;margin-top:8px">admin</span>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">How does this work?</div>
+    <div id="settingsInfo"></div>
+  </div>
+
+  <div class="settings-section">
+    <button id="settingsShareBtn" class="btn-base btn-outline" onclick="openShare()" style="display:block;width:100%;font-size:var(--fs-md);letter-spacing:2px;text-transform:uppercase">Share this app</button>
+  </div>
+
+  <div class="settings-section" id="settingsSendObsWrap" style="display:none">
+    <button class="btn-base btn-primary" onclick="sendObservations()" style="width:100%">Send Observations</button>
+  </div>
+
+</div>
+
+<!-- Slot detail modal -->
+<div id="slotModal" class="modal-sheet" onclick="if(event.target===this)closeSlotModal()">
+  <div class="modal-sheet-body" id="slotBoxContent"></div>
+</div>
+
+<!-- Share modal -->
+<div id="shareModal" onclick="if(event.target===this)closeShare()">
+  <div class="share-box">
+    <h2>Share MSK8</h2>
+    <canvas id="qrCanvas" width="200" height="200"></canvas>
+    <div class="share-url" id="shareUrl"></div>
+    <button id="shareSheetBtn" class="btn-base btn-primary" onclick="doShare()" style="width:100%;margin-top:var(--sp-xl)">Share &rarr;</button>
+    <button id="shareCloseBtn" class="btn-base btn-ghost" onclick="closeShare()" style="width:100%;margin-top:10px;font-size:0.75rem">Close</button>
+  </div>
+</div>
+
+<!-- Update banner -->
+<div id="updateBanner">
+  <span>Update available ✨</span>
+  <button onclick="applyUpdate()">Refresh</button>
+</div>
+<script>
+// ─────────────────────────────────────────────
+//  Constants
+// ─────────────────────────────────────────────
+const THEME_COLORS = {
+  lava:    ['', '#000004', '#51127C', '#B73779', '#FC8961', '#FCFDBF'],
+  slime:   ['', '#440154', '#3B528B', '#21918C', '#5EC962', '#FDE725'],
+  classic: ['', '#d32f2f', '#e8500a', '#f9a825', '#8bc34a', '#2e7d32'],
+};
+const THEME_TEXT = {
+  lava:    ['', '#fff', '#fff', '#fff', '#1a1a1a', '#1a1a1a'],
+  slime:   ['', '#fff', '#fff', '#fff', '#1a1a1a', '#1a1a1a'],
+  classic: ['', '#fff', '#fff', '#1a1a1a', '#1a1a1a', '#fff'],
+};
+const SCORE_LABELS = ['', 'No Chance', 'Unlikely', 'Maybe', 'Probably Dry', "Let's Skate"];
+const SCORE_EMOJI  = ['', '🚫', '💧', '🤷', '✅', '🔥'];
+const BASE_W = { smhi: 0.40, yr: 0.35, om: 0.25 };
+
+// B&W raster patterns (score 1 = densest → 5 = white)
+const BW_GRAD = ['',
+  './rasters/raster%204.png',
+  './rasters/raster%203.png',
+  './rasters/raster%202.png',
+  './rasters/raster%201.png',
+  '#fff',
+];
+const BW_SOLID = ['', '#111', '#555', '#888', '#aaa', '#fff'];
+const BW_TEXT  = ['', '#fff', '#fff', '#111', '#111', '#111'];
+
+let colorTheme = 'lava', lastRenderArgs = null;
+function isBW() { return colorTheme === 'bw'; }
+
+function scoreBgStyle(sc) {
+  if (!isBW()) return `background:${THEME_COLORS[colorTheme][sc]}`;
+  if (sc === 5) return 'background:#fff';
+  if (sc >= 1 && sc <= 4) return `background:url('${BW_GRAD[sc]}') repeat;background-size:8px 8px;image-rendering:pixelated`;
+  return 'background:#fff';
+}
+function scoreSolid(sc)    { return isBW() ? BW_SOLID[sc] : THEME_COLORS[colorTheme][sc]; }
+function scoreText(sc)     { return isBW() ? BW_TEXT[sc]  : THEME_TEXT[colorTheme][sc]; }
+function scoreLabelClr(sc) { return '#1a1a1a'; }
+function setTheme(t) {
+  colorTheme = t;
+  localStorage.setItem('sk8theme', t);
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === t));
+  if (!lastRenderArgs) return;
+  const openIdx = new Set([...document.querySelectorAll('.day-row')].flatMap((r, i) => r.classList.contains('open') ? [i] : []));
+  render(...lastRenderArgs, openIdx);
+}
+
+function generateHexBg() {
+  const canvas = document.getElementById('cfCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const W = canvas.width, H = canvas.height;
+  const originX = 0, originY = H;
+  function rand(a, b) { return Math.random() * (b - a) + a; }
+  function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+  function hex(cx, cy, size) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const ang = (Math.PI / 3) * i - Math.PI / 6;
+      const x = cx + size * Math.cos(ang);
+      const y = cy + size * Math.sin(ang);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#FF00FF';
+    ctx.fill();
+  }
+  hex(originX, originY, 150);
+  const numLines = randInt(3, 12);
+  for (let i = 0; i < numLines; i++) {
+    const angDeg = rand(0, 100);
+    const angRad = (angDeg * Math.PI) / 180;
+    const dirX = Math.cos(angRad), dirY = -Math.sin(angRad);
+    let maxLen = W;
+    if (dirX > 0.001) maxLen = Math.min(maxLen, W / dirX);
+    if (dirY < -0.001) maxLen = Math.min(maxLen, H / -dirY);
+    maxLen = Math.min(maxLen, W);
+    const lineLen = rand(maxLen * 0.5, maxLen * 2.0);
+    const numHex = randInt(3, 12);
+    const minS = rand(8, 15), maxS = rand(60, 95);
+    for (let j = 0; j < numHex; j++) {
+      const t = (j + 1) / (numHex + 1);
+      const dist = t * lineLen;
+      const cx = originX + dirX * dist;
+      const cy = originY + dirY * dist;
+      const size = minS + (maxS - minS) * (j / (numHex - 1 || 1));
+      hex(cx, cy, size);
+    }
+  }
+}
+window.addEventListener('resize', () => { if (document.body.classList.contains('cf-mode')) generateHexBg(); });
+
+function setBadgeShape(shape) {
+  localStorage.setItem('sk8shape', shape);
+  document.body.classList.toggle('cf-mode', shape === 'cf');
+  document.querySelectorAll('#shapeGroup .theme-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === shape));
+  if (shape === 'cf') generateHexBg();
+  else { const c = document.getElementById('cfCanvas'); if (c) { c.getContext('2d').clearRect(0, 0, c.width, c.height); } }
+}
+
+let lastLat = null, lastLon = null;
+
+// ─────────────────────────────────────────────
+//  Service Worker registration
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Returns the primary warning icon for a slot with score ≤ 3
+// \uFE0E = text variation selector → forces monochrome rendering
+function slotWarningIcon(wx, rain, prevMaxTemp) {
+  if (!wx) return '';
+  // Only show frost icon when concrete frost is actually likely
+  const frost = frostPenalty(wx, prevMaxTemp != null ? prevMaxTemp : null);
+  if (frost.penalty <= -1.5) return '\u2744\uFE0E';                         // ❄ Frost (concrete risk)
+  if (wx.precip > 0.02) return '\u26C8\uFE0E';                              // ⛈ Rain
+  if (rain > 0.1) return '\uD83E\uDEDF\uFE0E';                              // 🫟 Wet (recent rain)
+  const cSpread = concreteSpread(wx, prevMaxTemp).spread;
+  if (cSpread < 1.5) return '\uD83D\uDCA7\uFE0E';                           // 💧 Dew risk (concrete)
+  return '';
+}
+
+//  Slot detail modal
+// ─────────────────────────────────────────────
+function scoreBreakdown(wx, sunriseMs, slotMs, rain5h, prevMaxTemp) {
+  const factors = [];
+  if (!wx) return { score: 3, factors: [{ label: 'No weather data', delta: null, note: '' }] };
+
+  const frost = frostPenalty(wx, prevMaxTemp != null ? prevMaxTemp : null);
+  if (frost.penalty <= -4) {
+    return { score: 1, factors: [{ label: 'Concrete frost', delta: null, note: frost.note }] };
+  }
+  if (wx.precip > 0.5) {
+    return { score: 1, factors: [{ label: 'Heavy rain right now', delta: null, note: `${wx.precip.toFixed(1)} mm/h — instant score 1` }] };
+  }
+
+  let s = 5;
+  factors.push({ label: 'Base score', delta: null, note: 'starts perfect', running: 5 });
+
+  // Frost (graduated)
+  if (frost.penalty) {
+    s += frost.penalty;
+    factors.push({ label: 'Frost risk', delta: frost.penalty, note: frost.note, running: s });
+  }
+
+  // Current precip
+  let d = 0;
+  if (wx.precip > 0.1) d = -2.5; else if (wx.precip > 0.02) d = -1.0;
+  if (d) { s += d; factors.push({ label: 'Rain right now', delta: d, note: `${wx.precip.toFixed(2)} mm/h`, running: s }); }
+
+  // Recent rain (5 h)
+  d = 0;
+  if      (rain5h > 6)    d = -3.5;
+  else if (rain5h > 3)    d = -2.8;
+  else if (rain5h > 1.2)  d = -2.2;
+  else if (rain5h > 0.4)  d = -1.4;
+  else if (rain5h > 0.1)  d = -0.7;
+  else if (rain5h > 0.02) d = -0.3;
+  if (d) { s += d; factors.push({ label: 'Recent rain (5 h)', delta: d, note: `${rain5h.toFixed(1)} mm total`, running: s }); }
+
+  // Condensation (concrete-aware)
+  const cond = concreteSpread(wx, prevMaxTemp);
+  d = 0;
+  if      (cond.spread <= 0)  d = -2.8;
+  else if (cond.spread < 1)   d = -2.2;
+  else if (cond.spread < 2.5) d = -1.5;
+  else if (cond.spread < 4)   d = -0.7;
+  else if (cond.spread < 5.6) d = -0.2;
+  s += d; factors.push({ label: 'Condensation risk', delta: d || 0, note: cond.note, running: s });
+
+  // Humidity
+  d = 0;
+  if      (wx.rh > 95) d = -0.7; else if (wx.rh > 88) d = -0.35; else if (wx.rh > 75) d = -0.1;
+  else if (wx.rh < 40) d = +0.6; else if (wx.rh < 55) d = +0.35;
+  if (d) { s += d; factors.push({ label: 'Humidity', delta: d, note: `${wx.rh.toFixed(0)}% RH`, running: s }); }
+
+  // Wind
+  d = 0;
+  if      (wx.wind > 30) d = +1.2; else if (wx.wind > 20) d = +0.9;
+  else if (wx.wind > 12) d = +0.55; else if (wx.wind > 6) d = +0.3;
+  else if (wx.wind < 3)  d = -0.3;
+  if (d) { s += d; factors.push({ label: d > 0 ? 'Wind drying' : 'Calm / no drying wind', delta: d, note: `${wx.wind.toFixed(0)} km/h`, running: s }); }
+
+  // Solar drying
+  const minsPast = (slotMs - sunriseMs) / 60000;
+  if (minsPast > 0) {
+    const sd = +Math.min(1.1, (minsPast / 80) * 0.85);
+    s += sd;
+    factors.push({ label: 'Solar drying', delta: +sd.toFixed(2), note: `${Math.round(minsPast)} min after sunrise`, running: s });
+  }
+
+  return { score: Math.round(Math.max(1, Math.min(5, s))), factors };
+}
+
+let _currentObsSlot = null;
+
+function openSlotModal(slot, tz) {
+  _currentObsSlot = { slot, tz };
+  const { slotTime, sc, wx, rain, isSR, sunriseMs } = slot;
+  const slotMs = slotTime.getTime();
+  const { score, factors } = scoreBreakdown(wx, sunriseMs, slotMs, rain, slot.prevMaxTemp);
+
+  const cloudPct = wx.cloud != null ? `${wx.cloud.toFixed(0)}%` : '—';
+  const dewSpread = (wx.temp != null && wx.dew != null) ? `${(wx.temp - wx.dew).toFixed(1)}°C` : '—';
+
+  const wxCells = [
+    { key: 'Temperature',  val: wx.temp != null ? `${wx.temp.toFixed(1)}°C` : '—' },
+    { key: 'Humidity',     val: wx.rh   != null ? `${wx.rh.toFixed(0)}%` : '—' },
+    { key: 'Wind',         val: wx.wind != null ? `${wx.wind.toFixed(0)} km/h` : '—' },
+    { key: 'Cloud cover',  val: cloudPct },
+    { key: 'Air/dew gap',  val: dewSpread },
+    { key: 'Rain (5 h)',   val: rain > 0.01 ? `${rain.toFixed(1)} mm` : 'none' },
+  ].map(c => `<div class="slot-wx-cell"><div class="slot-wx-key">${c.key}</div><div class="slot-wx-val">${c.val}</div></div>`).join('');
+
+  const bdRows = factors.map(f => {
+    const deltaStr = f.delta === null ? '' : (f.delta === 0 ? '—' : (f.delta > 0 ? `+${f.delta}` : `${f.delta}`));
+    const cls = f.delta === null || f.delta === 0 ? 'zero' : (f.delta > 0 ? 'pos' : 'neg');
+    const runStr = f.running != null ? f.running.toFixed(1) : '';
+    return `<div class="breakdown-row">
+      <span class="bd-label">${f.label}</span>
+      <span class="bd-note">${f.note}</span>
+      <span class="bd-delta ${cls}">${deltaStr}</span>
+      <span class="bd-total">${runStr}</span>
+    </div>`;
+  }).join('');
+
+  const sunriseNote = isSR ? `<div style="margin-top:10px;font-size:0.72rem;color:#c08000;font-weight:bold">☀ This slot is at sunrise</div>` : '';
+
+  document.getElementById('slotBoxContent').innerHTML = `
+    <div class="slot-header">
+      <div class="slot-score-badge" style="background:${scoreSolid(sc)};color:${scoreText(sc)}">${sc}</div>
+      <div class="slot-header-text">
+        <div class="slot-time">${displayTime(slotTime, tz)}</div>
+        <div class="slot-label" style="color:${scoreLabelClr(sc)}">${SCORE_LABELS[sc]}</div>
+      </div>
+    </div>
+    ${sunriseNote}
+    <div class="slot-wx-grid">${wxCells}</div>
+    <div class="slot-section-title">Score breakdown</div>
+    <div>${bdRows}</div>
+    <div class="breakdown-final">
+      <span class="bd-final-label">Final score</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${slotWarningIcon(wx, rain, slot.prevMaxTemp) ? `<div class="bd-final-icon">${slotWarningIcon(wx, rain, slot.prevMaxTemp)}</div>` : ''}
+        <div class="bd-final-score" style="background:${scoreSolid(score)};color:${scoreText(score)}">${score}</div>
+      </div>
+    </div>
+    ${adminMode ? `<button class="btn-base btn-primary slot-report-btn" onclick="openObsSheet()">Report Observation</button>
+    <div class="obs-sheet" id="obsSheet" style="display:none">
+      <div class="obs-btns">
+        <button class="obs-btn" id="obsBtnPerfect" onclick="selectObsForecast('perfect')">&#x1F44D;&#xFE0E;<span>Perfect Match</span></button>
+        <button class="obs-btn" id="obsBtnObserved" onclick="selectObsForecast('observed')">&#x270F;&#xFE0E;<span>Report Observed</span></button>
+      </div>
+      <div class="obs-detail" id="obsDetail">
+        <div class="obs-detail-title">Observed score</div>
+        <div class="select-row">
+          ${[1,2,3,4,5].map(s => `<button class="select-btn obs-score-btn${s === score ? ' selected' : ''}" data-score="${s}" onclick="selectObsScore(${s})" style="background:${scoreSolid(s)};color:${scoreText(s)}">${s}</button>`).join('')}
+        </div>
+        <div class="obs-detail-title">Observed condition</div>
+        <div class="select-row" style="gap:6px">
+          <button class="select-btn obs-condition-btn" data-condition="rain" onclick="selectObsCondition('rain')">⛈\uFE0E Rain</button>
+          <button class="select-btn obs-condition-btn" data-condition="wet" onclick="selectObsCondition('wet')">🫟\uFE0E Wet</button>
+          <button class="select-btn obs-condition-btn" data-condition="dew" onclick="selectObsCondition('dew')">💧\uFE0E Dew</button>
+          <button class="select-btn obs-condition-btn" data-condition="frost" onclick="selectObsCondition('frost')">❄\uFE0E Frost</button>
+          <button class="select-btn obs-condition-btn" data-condition="none" onclick="selectObsCondition('none')">🚫\uFE0E None</button>
+        </div>
+      </div>
+      <button class="btn-base btn-primary obs-save-btn" id="obsSaveBtn" onclick="saveObservation()">Save Report</button>
+      <div class="obs-saved" id="obsSaved" style="display:none">Saved ✓</div>
+    </div>` : ''}
+    <button class="btn-base btn-outline slot-close-btn" onclick="closeSlotModal()">Close</button>`;
+
+  const m = document.getElementById('slotModal');
+  m.classList.remove('closing');
+  void m.offsetWidth;
+  m.classList.add('open');
+}
+function closeSlotModal() {
+  const m = document.getElementById('slotModal');
+  if (!m.classList.contains('open')) return;
+  m.classList.add('closing');
+  m.classList.remove('open');
+  const onDone = () => { m.classList.remove('closing'); m.removeEventListener('transitionend', onDone); };
+  m.addEventListener('transitionend', onDone);
+  setTimeout(() => m.classList.remove('closing'), 200);
+  _currentObsSlot = null;
+}
+
+function sendObservations() {
+  const data = JSON.parse(localStorage.getItem('sk8observations') || '[]');
+  if (!data.length) { alert('No observations recorded yet.'); return; }
+  const body = encodeURIComponent(JSON.stringify(data, null, 2));
+  const subject = encodeURIComponent(`MSK8 Observations (${data.length})`);
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  localStorage.removeItem('sk8observations');
+}
+
+// Observation sheet state
+let _obsForecastStatus = null;
+let _obsScore = null;
+let _obsCondition = null;
+
+function selectObsForecast(status) {
+  _obsForecastStatus = status;
+  document.getElementById('obsBtnPerfect').classList.toggle('selected', status === 'perfect');
+  document.getElementById('obsBtnObserved').classList.toggle('selected', status === 'observed');
+  const detail = document.getElementById('obsDetail');
+  if (detail) detail.classList.toggle('show', status === 'observed');
+  if (status === 'perfect') {
+    _obsScore = null;
+    _obsCondition = null;
+  }
+  updateObsSaveBtn();
+}
+
+function selectObsScore(sc) {
+  _obsScore = sc;
+  document.querySelectorAll('.obs-score-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.score) === sc);
+  });
+  updateObsSaveBtn();
+}
+
+function selectObsCondition(condition) {
+  _obsCondition = condition;
+  document.querySelectorAll('.obs-condition-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.condition === condition);
+  });
+  updateObsSaveBtn();
+}
+
+function updateObsSaveBtn() {
+  const btn = document.getElementById('obsSaveBtn');
+  const enabled = (_obsForecastStatus === 'perfect') || (_obsForecastStatus === 'observed' && _obsScore !== null && _obsCondition !== null);
+  btn.classList.toggle('enabled', enabled);
+}
+
+function openObsSheet() {
+  _obsForecastStatus = null;
+  _obsScore = null;
+  _obsCondition = null;
+  document.getElementById('obsBtnPerfect').classList.remove('selected');
+  document.getElementById('obsBtnObserved').classList.remove('selected');
+  const detail = document.getElementById('obsDetail');
+  if (detail) detail.classList.remove('show');
+  document.querySelectorAll('.obs-score-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.score) === _currentObsSlot?.slot?.sc);
+  });
+  document.querySelectorAll('.obs-condition-btn').forEach(b => b.classList.remove('selected'));
+  updateObsSaveBtn();
+  const sheet = document.getElementById('obsSheet');
+  const saved = document.getElementById('obsSaved');
+  if (sheet) { sheet.style.display = 'block'; }
+  if (saved) { saved.style.display = 'none'; }
+}
+
+function saveObservation() {
+  if (!_currentObsSlot || !_obsForecastStatus) return;
+  const { slot } = _currentObsSlot;
+  const locRaw = localStorage.getItem('sk8loc');
+  const loc = locRaw ? JSON.parse(locRaw) : {};
+  const entry = {
+    id: Date.now(),
+    recordedAt: new Date().toISOString(),
+    slotTime: slot.slotTime.toISOString(),
+    location: { lat: loc.lat || null, lon: loc.lon || null, name: loc.name || null },
+    wx: {
+      temp:  slot.wx.temp,
+      rh:    slot.wx.rh,
+      wind:  slot.wx.wind,
+      cloud: slot.wx.cloud,
+      dew:   slot.wx.dew,
+    },
+    rain5h: slot.rain,
+    calculatedScore: slot.sc,
+    forecastStatus: _obsForecastStatus,
+    observedScore: _obsForecastStatus === 'perfect' ? slot.sc : _obsScore,
+    observedCondition: _obsForecastStatus === 'perfect' ? null : _obsCondition,
+  };
+  const existing = JSON.parse(localStorage.getItem('sk8observations') || '[]');
+  existing.push(entry);
+  localStorage.setItem('sk8observations', JSON.stringify(existing));
+  const saved = document.getElementById('obsSaved');
+  if (saved) { saved.style.display = 'block'; }
+  setTimeout(() => {
+    if (saved) saved.style.display = 'none';
+    const sheet = document.getElementById('obsSheet');
+    if (sheet) sheet.style.display = 'none';
+  }, 800);
+}
+
+// ─────────────────────────────────────────────
+//  Admin mode
+// ─────────────────────────────────────────────
+let adminMode = localStorage.getItem('sk8admin') === '1';
+
+function updateAdminUI() {
+  const badge = document.getElementById('settingsAdminBadge');
+  const sendWrap = document.getElementById('settingsSendObsWrap');
+  if (badge) badge.style.display = adminMode ? 'inline' : 'none';
+  if (sendWrap) sendWrap.style.display = adminMode ? 'block' : 'none';
+}
+
+// ─────────────────────────────────────────────
+//  Settings panel
+// ─────────────────────────────────────────────
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  if (panel.classList.contains('open')) { closeSettings(); return; }
+  panel.classList.remove('closing');
+  document.getElementById('settingsOverlay').classList.add('open');
+  // Force reflow so the opening transition fires
+  void panel.offsetWidth;
+  panel.classList.add('open');
+}
+function closeSettings() {
+  const panel = document.getElementById('settingsPanel');
+  panel.classList.add('closing');
+  panel.classList.remove('open');
+  document.getElementById('settingsOverlay').classList.remove('open');
+  panel.addEventListener('transitionend', function handler() {
+    panel.classList.remove('closing');
+    panel.removeEventListener('transitionend', handler);
+  });
+}
+
+function toggleLocSearch(forceOpen) {
+  const panel = document.getElementById('settingsLocSearch');
+  const chip  = document.getElementById('settingsLocChip');
+  const open  = forceOpen !== undefined ? forceOpen : panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  chip.classList.toggle('open', open);
+  if (open) {
+    document.getElementById('settingsSearchInput').focus();
+    document.getElementById('settingsSearchInput').value = '';
+    closeSearch('settingsSearchResults');
+  }
+}
+
+function doSettingsLocSearch() {
+  const q = document.getElementById('settingsSearchInput').value.trim();
+  if (q) runSearch(q, 'settingsSearchResults', null);
+}
+
+// ─────────────────────────────────────────────
+//  Secret konami — press legend dots 5,5,5,2,4
+// ─────────────────────────────────────────────
+const _konamiSeq = [];
+function konamiPress(v) {
+  _konamiSeq.push(v);
+  if (_konamiSeq.length > 5) _konamiSeq.shift();
+  const seq = _konamiSeq.join('');
+  if (seq.endsWith('55524')) {
+    adminMode = !adminMode;
+    localStorage.setItem('sk8admin', adminMode ? '1' : '0');
+    confetti({ particleCount: 260, spread: 90, origin: { y: 0.55 }, zIndex: 99999 });
+    setTimeout(() => confetti({ particleCount: 120, spread: 120, origin: { x: 0.1, y: 0.6 }, zIndex: 99999 }), 200);
+    setTimeout(() => confetti({ particleCount: 120, spread: 120, origin: { x: 0.9, y: 0.6 }, zIndex: 99999 }), 400);
+    _konamiSeq.length = 0;
+    updateAdminUI();
+  } else if (seq.endsWith('1122')) {
+    _konamiSeq.length = 0;
+    showResetModal();
+  }
+}
+
+function showResetModal() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99990;display:flex;align-items:center;justify-content:center';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border-radius:var(--r-xl);padding:28px 24px 20px;text-align:center;width:min(320px,85vw);font-family:inherit';
+  box.innerHTML = `
+    <div style="font-size:0.9rem;font-weight:bold;margin-bottom:16px;line-height:1.5">Erase all locally stored settings?</div>
+    <div style="font-size:0.72rem;color:#555;margin-bottom:22px;line-height:1.5">Location, B&W preference, admin mode and observations will be removed.</div>
+    <div style="display:flex;gap:10px">
+      <button id="resetNo" class="btn-base btn-outline" style="flex:1;font-size:0.78rem">No</button>
+      <button id="resetYes" class="btn-base" style="flex:1;padding:12px;background:var(--danger);color:#fff;border-radius:var(--r-md);font-size:0.78rem">Yes, erase</button>
+    </div>`;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  box.querySelector('#resetNo').onclick = () => overlay.remove();
+  box.querySelector('#resetYes').onclick = () => {
+    localStorage.removeItem('sk8loc');
+    localStorage.removeItem('sk8theme');
+    localStorage.removeItem('sk8shape');
+    localStorage.removeItem('sk8admin');
+    localStorage.removeItem('sk8observations');
+    overlay.remove();
+    closeSettings();
+    location.reload();
+  };
+}
+
+// ─────────────────────────────────────────────
+//  Share + QR
+// ─────────────────────────────────────────────
+const SHARE_URL = 'https://morning-sk8.netlify.app';
+
+function openShare() {
+  document.getElementById('shareUrl').textContent = SHARE_URL;
+  document.getElementById('shareModal').classList.add('open');
+  drawQR();
+}
+function closeShare() {
+  document.getElementById('shareModal').classList.remove('open');
+}
+function doShare() {
+  if (navigator.share) {
+    navigator.share({ title: 'MSK8 — Skatepark Dryness Forecast', url: SHARE_URL }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(SHARE_URL).then(() => alert('Link copied!')).catch(() => {});
+  }
+}
+
+// Minimal QR encoder — uses qrcode-generator loaded below
+function drawQR() {
+  const canvas = document.getElementById('qrCanvas');
+  const ctx = canvas.getContext('2d');
+  const size = 200;
+  canvas.width = canvas.height = size;
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(SHARE_URL);
+    qr.make();
+    const cells = qr.getModuleCount();
+    const cell = size / cells;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#1a1a1a';
+    for (let r = 0; r < cells; r++) {
+      for (let c = 0; c < cells; c++) {
+        if (qr.isDark(r, c)) ctx.fillRect(Math.floor(c * cell), Math.floor(r * cell), Math.ceil(cell), Math.ceil(cell));
+      }
+    }
+  } catch(e) {
+    ctx.fillStyle = '#eee'; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#999'; ctx.font = '12px monospace';
+    ctx.fillText('QR unavailable', 20, 100);
+  }
+}
+
+let _waitingSW = null;
+function applyUpdate() {
+  if (_waitingSW) { _waitingSW.postMessage({ type: 'SKIP_WAITING' }); }
+  else { location.reload(); }
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      // New SW waiting from a previous page load
+      if (reg.waiting) showUpdateBanner(reg.waiting);
+      // SW installed while page is open
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner(newSW);
+          }
+        });
+      });
+    }).catch(() => {});
+    // When the new SW takes control, reload
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  });
+}
+function showUpdateBanner(sw) {
+  _waitingSW = sw;
+  document.getElementById('updateBanner').classList.add('visible');
+}
+
+// ─────────────────────────────────────────────
+//  Splash
+// ─────────────────────────────────────────────
+const _splashT0 = Date.now();
+let _splashDone = false;
+function hideSplash() {
+  if (_splashDone) return;
+  _splashDone = true;
+  const el = document.getElementById('splash');
+  if (!el) return;
+  const delay = Math.max(0, 800 - (Date.now() - _splashT0));
+  setTimeout(() => { el.classList.add('gone'); setTimeout(() => el.remove(), 550); }, delay);
+}
+setTimeout(hideSplash, 4000); // hard cap
+
+// ─────────────────────────────────────────────
+//  Offline
+// ─────────────────────────────────────────────
+function showOfflineScreen() {
+  document.getElementById('initCtrl').style.display      = 'none';
+  document.getElementById('results').style.display       = 'none';
+  document.getElementById('statusRow').textContent       = '';
+  document.getElementById('errRow').textContent          = '';
+  document.getElementById('offlineScreen').style.display = 'block';
+}
+function hideOfflineScreen() {
+  document.getElementById('offlineScreen').style.display = 'none';
+  document.getElementById('results').style.display       = '';
+}
+window.addEventListener('online',  () => {
+  hideOfflineScreen();
+  if (lastLat) loadWeather(lastLat, lastLon);
+  else document.getElementById('initCtrl').style.display = '';
+});
+window.addEventListener('offline', () => { if (lastLat) showOfflineScreen(); });
+
+// ─────────────────────────────────────────────
+//  General helpers
+// ─────────────────────────────────────────────
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function fmtOffset(secs) {
+  const sign = secs >= 0 ? '+' : '-';
+  const a = Math.abs(secs);
+  return `${sign}${String(Math.floor(a / 3600)).padStart(2, '0')}:${String(Math.floor((a % 3600) / 60)).padStart(2, '0')}`;
+}
+function parseLocal(str, offset) { return new Date(str + offset); }
+function displayTime(date, tz) {
+  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+}
+function displayDayName(date, tz) {
+  return date.toLocaleDateString('en-GB', { weekday: 'long', timeZone: tz });
+}
+function displayShortDate(date, tz) {
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: tz });
+}
+function calcDewPoint(T, RH) {
+  const rh = Math.max(RH, 0.01);
+  const g = Math.log(rh / 100) + (17.625 * T) / (243.04 + T);
+  return (243.04 * g) / (17.625 - g);
+}
+
+// ─────────────────────────────────────────────
+//  Normalise API responses → unified entries
+// ─────────────────────────────────────────────
+function normOM(data) {
+  const h = data.hourly;
+  const offset = fmtOffset(data.utc_offset_seconds);
+  return h.time.map((t, i) => ({
+    ms:     parseLocal(t, offset).getTime(),
+    temp:   h.temperature_2m[i]      ?? 10,
+    dew:    h.dewpoint_2m[i]          ?? 5,
+    rh:     h.relativehumidity_2m[i]  ?? 70,
+    wind:   h.windspeed_10m[i]        ?? 0,
+    cloud:  h.cloudcover[i]           ?? 50,
+    precip: h.precipitation[i]        ?? 0,
+  }));
+}
+function normYR(data) {
+  return data.properties.timeseries.map(ts => {
+    const d  = ts.data.instant.details;
+    const p1 = ts.data.next_1_hours?.details?.precipitation_amount;
+    const p6 = ts.data.next_6_hours?.details?.precipitation_amount;
+    const precip = p1 != null ? p1 : (p6 != null ? p6 / 6 : 0);
+    return {
+      ms:     new Date(ts.time).getTime(),
+      temp:   d.air_temperature       ?? 10,
+      dew:    d.dew_point_temperature ?? calcDewPoint(d.air_temperature ?? 10, d.relative_humidity ?? 70),
+      rh:     d.relative_humidity     ?? 70,
+      wind:   (d.wind_speed ?? 0) * 3.6,
+      cloud:  d.cloud_area_fraction   ?? 50,
+      precip,
+    };
+  });
+}
+function normSMHI(data) {
+  return data.timeSeries.map(ts => {
+    const p = {};
+    ts.parameters.forEach(x => { p[x.name] = x.values[0]; });
+    const T = p.t ?? 10, RH = p.r ?? 70;
+    return {
+      ms:     new Date(ts.validTime).getTime(),
+      temp:   T, dew: calcDewPoint(T, RH), rh: RH,
+      wind:   (p.ws ?? 0) * 3.6,
+      cloud:  (p.tcc_mean ?? p.tcc ?? 4) * 12.5,
+      precip: p.pmean ?? 0,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Interpolation
+// ─────────────────────────────────────────────
+function wxAtMs(entries, targetMs) {
+  if (!entries || entries.length === 0) return null;
+  if (targetMs < entries[0].ms - 3_600_000 || targetMs > entries[entries.length - 1].ms + 7_200_000) return null;
+  for (let i = 0; i < entries.length - 1; i++) {
+    if (targetMs >= entries[i].ms && targetMs < entries[i + 1].ms) {
+      const f = (targetMs - entries[i].ms) / (entries[i + 1].ms - entries[i].ms);
+      const a = entries[i], b = entries[i + 1];
+      return { temp: lerp(a.temp,b.temp,f), dew: lerp(a.dew,b.dew,f), rh: lerp(a.rh,b.rh,f), wind: lerp(a.wind,b.wind,f), cloud: lerp(a.cloud,b.cloud,f), precip: a.precip };
+    }
+  }
+  const n = entries[entries.length - 1];
+  return { temp: n.temp, dew: n.dew, rh: n.rh, wind: n.wind, cloud: n.cloud, precip: n.precip };
+}
+function recentRainMs(entries, targetMs, hoursBack) {
+  let total = 0;
+  for (const e of entries) { const h = (targetMs - e.ms) / 3_600_000; if (h >= 0 && h <= hoursBack) total += e.precip; }
+  return total;
+}
+function blendWx(sources, targetMs) {
+  const avail = sources.map(s => ({ ...s, wx: wxAtMs(s.entries, targetMs) })).filter(s => s.wx !== null);
+  if (avail.length === 0) return null;
+  const totalW = avail.reduce((a, s) => a + s.w, 0);
+  const out = {};
+  for (const f of ['temp','dew','rh','wind','cloud','precip']) out[f] = avail.reduce((a,s) => a + s.wx[f]*s.w, 0) / totalW;
+  return out;
+}
+function blendRain(sources, targetMs, hoursBack) {
+  const avail = sources.filter(s => s.entries && s.entries.length > 0);
+  if (avail.length === 0) return 0;
+  const totalW = avail.reduce((a, s) => a + s.w, 0);
+  return avail.reduce((a, s) => a + recentRainMs(s.entries, targetMs, hoursBack) * s.w, 0) / totalW;
+}
+
+// ─────────────────────────────────────────────
+//  Frost penalty (concrete-aware)
+// ─────────────────────────────────────────────
+function frostPenalty(wx, prevMaxTemp) {
+  // Returns { penalty: number, note: string } for concrete frost risk
+  // prevMaxTemp = highest temp in preceding 12 h (null if unknown)
+  if (!wx || wx.temp > 3) return { penalty: 0, note: '' };
+
+  const spread = wx.temp - wx.dew;
+  const calm   = wx.wind < 5;      // < 5 km/h
+  const clear  = wx.cloud < 25;    // mostly clear
+  const tight  = spread < 3;       // tight dew point spread
+  const warmDay = prevMaxTemp !== null && prevMaxTemp >= 5; // concrete stored heat
+
+  // Tier 1: Certain concrete frost
+  if (wx.temp < -3) return { penalty: -4, note: `${wx.temp.toFixed(1)}°C — concrete frost certain` };
+  if (wx.temp <= 0 && calm && clear && tight)
+    return { penalty: -4, note: `${wx.temp.toFixed(1)}°C, calm + clear + tight dew spread — concrete frost likely` };
+
+  // Tier 2: Probable concrete frost
+  if (wx.temp <= 0 && (calm || clear) && tight)
+    return { penalty: -2.5, note: `${wx.temp.toFixed(1)}°C — probable concrete frost` };
+  if (wx.temp <= 0 && !warmDay)
+    return { penalty: -2.0, note: `${wx.temp.toFixed(1)}°C — frost risk (no prior warmth)` };
+
+  // Tier 3: Marginal — grass frost likely, concrete probably fine
+  if (wx.temp <= 0 && warmDay)
+    return { penalty: -1.0, note: `${wx.temp.toFixed(1)}°C but warm prior day — grass frost only` };
+  if (wx.temp > 0 && wx.temp <= 2 && calm && clear && tight && !warmDay)
+    return { penalty: -1.5, note: `${wx.temp.toFixed(1)}°C, calm + clear — marginal frost risk` };
+  if (wx.temp > 0 && wx.temp <= 2 && wx.dew < 0 && !warmDay)
+    return { penalty: -0.7, note: `${wx.temp.toFixed(1)}°C, dew ${wx.dew.toFixed(1)}°C — slight frost risk` };
+
+  // Tier 4: Near-zero but protected
+  if (wx.temp > 0 && wx.temp <= 3 && (wx.wind > 5 || wx.cloud > 50))
+    return { penalty: -0.2, note: `${wx.temp.toFixed(1)}°C — wind/cloud protect concrete` };
+  if (wx.temp > 0 && wx.temp <= 3 && warmDay)
+    return { penalty: -0.2, note: `${wx.temp.toFixed(1)}°C — warm prior day, concrete fine` };
+
+  // Catchall for 0-3°C range
+  if (wx.temp <= 0)
+    return { penalty: -1.5, note: `${wx.temp.toFixed(1)}°C — moderate frost risk` };
+  return { penalty: -0.5, note: `${wx.temp.toFixed(1)}°C — minor cold penalty` };
+}
+
+// Helper: max temperature in preceding hours from sources
+function prevMaxTempFromSources(sources, targetMs, hoursBack) {
+  let maxT = null;
+  for (let h = 1; h <= hoursBack; h++) {
+    const wx = blendWx(sources, targetMs - h * 3600000);
+    if (wx && wx.temp != null) {
+      if (maxT === null || wx.temp > maxT) maxT = wx.temp;
+    }
+  }
+  return maxT;
+}
+
+// ─────────────────────────────────────────────
+//  Concrete-aware condensation spread
+// ─────────────────────────────────────────────
+function concreteSpread(wx, prevMaxTemp) {
+  // Base surface cooling from radiative loss (same as before)
+  const radCool = wx.cloud < 20 ? 3.5 : wx.cloud < 45 ? 2.2 : wx.cloud < 70 ? 1.0 : 0.3;
+
+  // Concrete offset: concrete cools less than grass/thin surfaces
+  let concreteOffset = 1.5; // base: concrete stays ~1.5°C warmer
+
+  // Wind disrupts the stagnant boundary layer where dew deposits
+  if      (wx.wind > 12) concreteOffset += 1.2;
+  else if (wx.wind > 5)  concreteOffset += 0.8;
+  else if (wx.wind > 3)  concreteOffset += 0.4;
+
+  // Prior warmth: concrete stored heat from a warm day
+  if (prevMaxTemp !== null && prevMaxTemp >= 10) concreteOffset += 0.8;
+  else if (prevMaxTemp !== null && prevMaxTemp >= 5) concreteOffset += 0.4;
+
+  const effectiveCool = Math.max(0, radCool - concreteOffset);
+  const spread = (wx.temp - wx.dew) - effectiveCool;
+
+  const cloudDesc = wx.cloud < 20 ? 'clear' : wx.cloud < 45 ? 'partly cloudy' : wx.cloud < 70 ? 'mostly cloudy' : 'overcast';
+  const note = `air/dew ${(wx.temp - wx.dew).toFixed(1)}°C, −${effectiveCool.toFixed(1)}°C net cooling (${cloudDesc}, concrete +${concreteOffset.toFixed(1)}°C)`;
+
+  return { spread, effectiveCool, note, cloudDesc };
+}
+
+// ─────────────────────────────────────────────
+//  Scoring
+// ─────────────────────────────────────────────
+function calcScore(wx, sunriseMs, slotMs, rain5h, prevMaxTemp) {
+  if (!wx) return 3;
+  const frost = frostPenalty(wx, prevMaxTemp != null ? prevMaxTemp : null);
+  if (frost.penalty <= -4) return 1;
+  let s = 5;
+  if (frost.penalty) s += frost.penalty;
+  if (wx.precip > 0.5) return 1;
+  if (wx.precip > 0.1) s -= 2.5; else if (wx.precip > 0.02) s -= 1.0;
+  if      (rain5h > 6)    s -= 3.5;
+  else if (rain5h > 3)    s -= 2.8;
+  else if (rain5h > 1.2)  s -= 2.2;
+  else if (rain5h > 0.4)  s -= 1.4;
+  else if (rain5h > 0.1)  s -= 0.7;
+  else if (rain5h > 0.02) s -= 0.3;
+  const { spread: effSpread } = concreteSpread(wx, prevMaxTemp);
+  if      (effSpread <= 0)  s -= 2.8;
+  else if (effSpread < 1)   s -= 2.2;
+  else if (effSpread < 2.5) s -= 1.5;
+  else if (effSpread < 4)   s -= 0.7;
+  else if (effSpread < 5.6) s -= 0.2;
+  if      (wx.rh > 95) s -= 0.7; else if (wx.rh > 88) s -= 0.35; else if (wx.rh > 75) s -= 0.1;
+  else if (wx.rh < 55) s += 0.35; else if (wx.rh < 40) s += 0.6;
+  if      (wx.wind > 30) s += 1.2; else if (wx.wind > 20) s += 0.9;
+  else if (wx.wind > 12) s += 0.55; else if (wx.wind > 6) s += 0.3; else if (wx.wind < 3) s -= 0.3;
+  const minsPast = (slotMs - sunriseMs) / 60000;
+  if (minsPast > 0) s += Math.min(1.1, (minsPast / 80) * 0.85);
+  return Math.round(Math.max(1, Math.min(5, s)));
+}
+
+// ─────────────────────────────────────────────
+//  Build day slots
+// ─────────────────────────────────────────────
+function buildDaySlots(sources, dateStr, sunriseDate, offset) {
+  const endTime   = parseLocal(dateStr + 'T10:00', offset);
+  const slotStart = new Date(sunriseDate.getTime() - 30 * 60000);
+  const sunriseMs = sunriseDate.getTime();
+  const slots = [];
+  let t = new Date(slotStart);
+  while (t <= endTime) {
+    const ms = t.getTime();
+    const wx = blendWx(sources, ms), rain = blendRain(sources, ms, 5);
+    const prevMax = prevMaxTempFromSources(sources, ms, 12);
+    slots.push({ slotTime: new Date(t), sc: calcScore(wx, sunriseMs, ms, rain, prevMax), wx: wx||{}, rain, isSR: Math.abs(ms - sunriseMs) < 16*60000, sunriseMs, prevMaxTemp: prevMax });
+    t = new Date(ms + 30*60000);
+  }
+  return slots;
+}
+
+// ─────────────────────────────────────────────
+//  Render one slot card
+// ─────────────────────────────────────────────
+function makeCard(slot, tz) {
+  const { slotTime, sc, wx, rain, isSR } = slot;
+  const metaStr = [
+    wx.temp  != null ? `${wx.temp.toFixed(1)}°C` : null,
+    wx.rh    != null ? `RH ${wx.rh.toFixed(0)}%` : null,
+    wx.dew   != null ? `Δdew ${(wx.temp-wx.dew).toFixed(1)}°C` : null,
+    wx.wind  != null ? `${wx.wind.toFixed(0)} km/h` : null,
+    rain > 0.05      ? `rain ${rain.toFixed(1)}mm` : null,
+  ].filter(Boolean).join(' · ');
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.style.borderLeftColor = scoreSolid(sc);
+  card.style.cursor = 'pointer';
+  card.innerHTML = `
+    <div class="card-time">${displayTime(slotTime, tz)}</div>
+    <div class="badge" style="background:${scoreSolid(sc)};color:${scoreText(sc)}">${sc}</div>
+    <div class="card-body">
+      <div class="card-label" style="color:${scoreLabelClr(sc)}">${SCORE_LABELS[sc]}</div>
+      <div class="card-meta">${isSR?'<span class="sunrise-tag">☀ SUNRISE</span> · ':''}${metaStr}</div>
+    </div>`;
+  card.addEventListener('click', () => openSlotModal(slot, tz));
+  return card;
+}
+
+// ─────────────────────────────────────────────
+//  API fetches
+// ─────────────────────────────────────────────
+async function fetchOM(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,dewpoint_2m,relativehumidity_2m,windspeed_10m,precipitation,cloudcover&daily=sunrise,sunset&timezone=auto&forecast_days=8&windspeed_unit=kmh`;
+  const r = await fetch(url); if (!r.ok) throw new Error(`OM ${r.status}`); return r.json();
+}
+async function fetchYR(lat, lon) {
+  const r = await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`);
+  if (!r.ok) throw new Error(`YR ${r.status}`); return normYR(await r.json());
+}
+async function fetchSMHI(lat, lon) {
+  const r = await fetch(`https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${lon.toFixed(4)}/lat/${lat.toFixed(4)}/data.json`);
+  if (!r.ok) throw new Error(`SMHI ${r.status}`); return normSMHI(await r.json());
+}
+
+// ─────────────────────────────────────────────
+//  Location search helpers
+// ─────────────────────────────────────────────
+let searchTimer = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Initial search (before load)
+  const inp = document.getElementById('searchInput');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  inp.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    if (!inp.value.trim()) { closeSearch('searchResults'); return; }
+    searchTimer = setTimeout(() => doSearch(true), 400);
+  });
+  // Settings loc search
+  const linp = document.getElementById('settingsSearchInput');
+  linp.addEventListener('keydown', e => { if (e.key === 'Enter') doSettingsLocSearch(); });
+  linp.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    if (!linp.value.trim()) { closeSearch('settingsSearchResults'); return; }
+    searchTimer = setTimeout(() => doSettingsLocSearch(true), 400);
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('searchWrap').contains(e.target)) closeSearch('searchResults');
+    const sLoc = document.getElementById('settingsLoc');
+    if (sLoc && !sLoc.contains(e.target)) {
+      closeSearch('settingsSearchResults');
+    }
+  });
+  initPullToRefresh();
+
+  // Restore colour theme preference
+  const savedTheme = localStorage.getItem('sk8theme');
+  if (savedTheme && (savedTheme === 'lava' || savedTheme === 'slime' || savedTheme === 'classic' || savedTheme === 'bw')) {
+    colorTheme = savedTheme;
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === savedTheme));
+  }
+
+  // Restore badge shape preference
+  const savedShape = localStorage.getItem('sk8shape');
+  if (savedShape === 'cf') setBadgeShape('cf');
+
+  // Restore admin mode
+  updateAdminUI();
+
+  // Auto-load saved location (or show offline / welcome)
+  if (!navigator.onLine) {
+    showOfflineScreen();
+    hideSplash();
+  } else {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sk8loc'));
+      if (saved?.lat && saved?.lon) loadWeather(saved.lat, saved.lon); // hideSplash in finally
+      else hideSplash();
+    } catch (_) { hideSplash(); }
+  }
+});
+
+function closeSearch(id) {
+  const el = document.getElementById(id);
+  el.innerHTML = ''; el.classList.remove('open');
+}
+
+async function runSearch(q, resultsId, btnId) {
+  const btn     = btnId ? document.getElementById(btnId) : null;
+  const results = document.getElementById(resultsId);
+  if (btn) btn.disabled = true;
+  try {
+    const arr = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`,
+      { headers: { 'Accept-Language': 'en-US,en;q=0.9' } }
+    ).then(r => r.json());
+    results.innerHTML = '';
+    if (!arr.length) {
+      results.innerHTML = '<div class="search-result-item" style="color:#555">No results found</div>';
+    } else {
+      arr.forEach(item => {
+        const a    = item.address || {};
+        const name = a.city || a.town || a.village || a.municipality || item.display_name.split(',')[0];
+        const extra = item.display_name.split(',').slice(1,3).join(',').trim();
+        const el   = document.createElement('div');
+        el.className = 'search-result-item';
+        el.innerHTML = `<div class="sri-name">${name}</div><div class="sri-extra">${extra}</div>`;
+        el.addEventListener('click', () => {
+          closeSearch(resultsId);
+          toggleLocSearch(false);
+          closeSettings();
+          loadWeather(parseFloat(item.lat), parseFloat(item.lon));
+        });
+        results.appendChild(el);
+      });
+    }
+    results.classList.add('open');
+  } catch (_) {
+    results.innerHTML = '<div class="search-result-item" style="color:#c0392b">Search failed</div>';
+    results.classList.add('open');
+  }
+  if (btn) btn.disabled = false;
+}
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (q) runSearch(q, 'searchResults', 'searchBtn');
+}
+
+// ─────────────────────────────────────────────
+//  Pull-to-refresh
+// ─────────────────────────────────────────────
+function initPullToRefresh() {
+  const wrap = document.getElementById('mainWrap');
+  const ptr  = document.getElementById('ptr');
+  const THRESHOLD = 72;
+  let startY = 0, active = false, pulling = false;
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY !== 0 || !lastLat) return;
+    startY = e.touches[0].clientY;
+    active = true;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!active) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy < 4) { pulling = false; return; }
+    // Block native pull-to-refresh when we're handling the gesture
+    e.preventDefault();
+    pulling = true;
+    // Rubber band: resistance increases as you pull further
+    const disp = Math.pow(dy, 0.6) * 2.8;
+    wrap.classList.add('pulling');
+    wrap.style.transform = `translateY(${Math.min(disp, 80)}px)`;
+    ptr.classList.add('show');
+    if (dy >= THRESHOLD) {
+      ptr.classList.add('ready');
+      ptr.textContent = '↑';
+    } else {
+      ptr.classList.remove('ready');
+      ptr.textContent = '↓';
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', e => {
+    if (!pulling) { active = false; return; }
+    const dy = e.changedTouches[0].clientY - startY;
+    active = pulling = false;
+    wrap.classList.remove('pulling');
+    wrap.style.transform = '';
+
+    if (dy >= THRESHOLD && lastLat) {
+      ptr.innerHTML = '<span class="spin" style="width:16px;height:16px;border-width:2px;margin:0"></span>';
+      ptr.classList.remove('ready');
+      loadWeather(lastLat, lastLon).finally(() => {
+        ptr.classList.remove('show');
+        setTimeout(() => { ptr.textContent = '↓'; }, 300);
+      });
+    } else {
+      ptr.classList.remove('show', 'ready');
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Geolocation
+// ─────────────────────────────────────────────
+function requestLocation() {
+  const btn    = document.getElementById('locBtn');
+  const status = document.getElementById('statusRow');
+  const err    = document.getElementById('errRow');
+  btn.disabled = true; err.textContent = '';
+  status.innerHTML = '<span class="spin"></span>Getting your location…';
+  if (!navigator.geolocation) {
+    err.textContent = 'Geolocation not supported.'; btn.disabled = false; status.textContent = ''; return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => loadWeather(pos.coords.latitude, pos.coords.longitude),
+    () => { err.textContent = 'Location access denied.'; btn.disabled = false; status.textContent = ''; },
+    { timeout: 12000, enableHighAccuracy: false }
+  );
+}
+
+// ─────────────────────────────────────────────
+//  Load & blend weather
+// ─────────────────────────────────────────────
+async function loadWeather(lat, lon) {
+  lastLat = lat; lastLon = lon;
+  if (!navigator.onLine) { showOfflineScreen(); hideSplash(); return; }
+  hideOfflineScreen();
+  const status = document.getElementById('statusRow');
+  const err    = document.getElementById('errRow');
+
+  try {
+    status.innerHTML = '<span class="spin"></span>Fetching weather data…';
+    err.textContent  = '';
+
+    // Reverse geocode
+    let locName = `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    try {
+      const g = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
+      const j = await g.json(); const a = j.address || {};
+      locName = a.city || a.town || a.village || a.municipality || a.county || locName;
+    } catch (_) {}
+
+    // Fetch all three in parallel
+    const [omResult, yrResult, smhiResult] = await Promise.allSettled([fetchOM(lat,lon), fetchYR(lat,lon), fetchSMHI(lat,lon)]);
+    if (omResult.status !== 'fulfilled') throw new Error('Open-Meteo unavailable');
+
+    const omData      = omResult.value;
+    const yrEntries   = yrResult.status   === 'fulfilled' ? yrResult.value   : null;
+    const smhiEntries = smhiResult.status === 'fulfilled' ? smhiResult.value : null;
+
+    const raw = [
+      { key: 'om',   entries: normOM(omData), w: BASE_W.om,   label: 'Open-Meteo', ok: true },
+      { key: 'yr',   entries: yrEntries,       w: BASE_W.yr,   label: 'YR.no',      ok: !!yrEntries },
+      { key: 'smhi', entries: smhiEntries,      w: BASE_W.smhi, label: 'SMHI',       ok: !!smhiEntries },
+    ];
+    const active = raw.filter(s => s.ok);
+    const totalW = active.reduce((a, s) => a + s.w, 0);
+    const sources = active.map(s => ({ ...s, w: s.w / totalW }));
+
+    const sourcePills = raw.map(s => {
+      const effW = s.ok ? Math.round((s.w / totalW) * 100) : 0;
+      return `<span class="src-pill ${s.ok ? 'ok' : 'fail'}">${s.label}${s.ok ? ` ${effW}%` : ' ✗'}</span>`;
+    }).join('');
+
+    // Persist location
+    localStorage.setItem('sk8loc', JSON.stringify({ lat, lon, name: locName }));
+
+    // Switch to chip view
+    document.getElementById('initCtrl').style.display  = 'none';
+    document.getElementById('locDisplay').style.display = 'block';
+    document.getElementById('settingsBtn').style.display = 'flex';
+    document.getElementById('locChipName').textContent  = locName;
+    document.getElementById('settingsLocName').textContent = locName;
+    toggleLocSearch(false);
+
+    status.textContent = '';
+    lastRenderArgs = [omData, sources, sourcePills];
+    render(omData, sources, sourcePills);
+
+  } catch (e) {
+    status.textContent = '';
+    document.getElementById('errRow').textContent = 'Could not fetch weather data. Check your connection.';
+    console.error(e);
+  } finally {
+    hideSplash();
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Render
+// ─────────────────────────────────────────────
+function render(omData, sources, sourcePills = '', openDays = null) {
+  const results = document.getElementById('results');
+  results.innerHTML = '';
+  const daily  = omData.daily;
+  const offset = fmtOffset(omData.utc_offset_seconds);
+  const tz     = omData.timezone;
+  const now    = new Date();
+  const today10am  = parseLocal(daily.sunrise[0].split('T')[0] + 'T10:00', offset);
+  const nextDayIdx = now < today10am ? 0 : 1;
+  const numDays    = Math.min(daily.sunrise.length, 7);
+
+  let nextGoodSlot = null; // { label, time }
+
+  for (let di = 0; di < numDays; di++) {
+    const sunriseStr  = daily.sunrise[di];
+    const sunriseDate = parseLocal(sunriseStr, offset);
+    const dateStr     = sunriseStr.split('T')[0];
+    const slots = buildDaySlots(sources, dateStr, sunriseDate, offset);
+    if (!slots.length) continue;
+
+    // Find next future slot scoring >= 4
+    if (!nextGoodSlot) {
+      const dayLabel = di === 0 ? 'Today' : di === 1 ? 'Tomorrow' : displayDayName(sunriseDate, tz);
+      for (const s of slots) {
+        if (s.sc >= 4 && s.slotTime > now) {
+          nextGoodSlot = { label: dayLabel, slotTime: s.slotTime };
+          break;
+        }
+      }
+    }
+
+    const scores = slots.map(s => s.sc);
+    const minSc  = Math.min(...scores), maxSc = Math.max(...scores);
+    const isNext = di === nextDayIdx, isPast = di < nextDayIdx;
+    const startOpen = openDays ? openDays.has(di) : false;
+    const dayName   = di === 0 ? 'Today' : di === 1 ? 'Tomorrow' : displayDayName(sunriseDate, tz);
+    const shortDate = displayShortDate(sunriseDate, tz);
+
+    const row = document.createElement('div');
+    row.className = 'day-row' + (startOpen ? ' open' : '');
+
+    // Warning icons for any slot scoring ≤ 3, deduplicated by icon type (worst score wins)
+    const warnMap = new Map();
+    for (const s of slots) {
+      if (s.sc <= 3) {
+        const icon = slotWarningIcon(s.wx, s.rain, s.prevMaxTemp);
+        if (!icon) continue;
+        const cur = warnMap.get(icon);
+        if (cur == null || s.sc < cur) warnMap.set(icon, s.sc);
+      }
+    }
+    const warnHtml = warnMap.size === 0
+      ? `<span class="sp-surfer">\uD83C\uDFC4\uFE0E</span>`
+      : [...warnMap.entries()]
+          .map(([icon, sc]) => `<div class="sp sp-warn" style="background:${scoreSolid(sc)};color:${scoreText(sc)}">${icon}</div>`)
+          .join('');
+    const badgeHtml = isNext ? '<span class="day-badge">Next</span>' : '';
+    const runs = [];
+    for (const sc of scores) {
+      if (runs.length && runs[runs.length-1].sc === sc) runs[runs.length-1].n++;
+      else runs.push({ sc, n: 1 });
+    }
+    const barSegs = runs.map(({ sc, n }) => {
+      const border = (isBW() && sc === 5) ? 'border-top:1px solid #999;border-bottom:1px solid #999;' : '';
+      return `<div class="day-bar-seg" style="flex:${n};${scoreBgStyle(sc)};${border}"></div>`;
+    }).join('');
+
+    const barStartMs = slots[0].slotTime.getTime(), barEndMs = slots[slots.length-1].slotTime.getTime();
+    const barDur = barEndMs - barStartMs;
+    const mkTick = (ms, lbl) => {
+      if (ms <= barStartMs || ms >= barEndMs) return '';
+      const p = ((ms - barStartMs) / barDur * 100).toFixed(1);
+      return `<div class="day-bar-tick" style="left:${p}%"></div><div class="day-bar-tick-lbl" style="left:${p}%">${lbl}</div>`;
+    };
+    const tickHtml = mkTick(parseLocal(dateStr+'T07:00',offset).getTime(),'7') +
+                     mkTick(parseLocal(dateStr+'T09:00',offset).getTime(),'9');
+
+    row.innerHTML = `
+      <div class="day-row-head">
+        <div class="day-name" style="color:${isPast?'#888':'#1a1a1a'}">${dayName}</div>
+        <div class="day-date">${shortDate}</div>
+        ${badgeHtml}
+        <div class="score-span">${warnHtml}</div>
+        <div class="day-chevron">▼</div>
+      </div>
+      <div class="day-bar-wrap"><div class="day-bar">${barSegs}</div>${tickHtml}</div>
+      <div class="day-slots"></div>`;
+
+    const head = row.querySelector('.day-row-head'), slotsEl = row.querySelector('.day-slots');
+    let built = false;
+    const populate = () => { if (built) return; built = true; slots.forEach(s => slotsEl.appendChild(makeCard(s, tz))); };
+    head.addEventListener('click', () => { if (row.classList.toggle('open')) populate(); });
+    if (startOpen) populate();
+    results.appendChild(row);
+  }
+
+  // Update header with next good slot
+  const nextEl = document.getElementById('nextSkateTime');
+  if (nextEl) {
+    if (nextGoodSlot) {
+      nextEl.textContent = `${nextGoodSlot.label} ${displayTime(nextGoodSlot.slotTime, tz)}`;
+    } else {
+      nextEl.textContent = 'No good windows';
+    }
+  }
+
+  // Populate settings info panel
+  const settingsInfo = document.getElementById('settingsInfo');
+  settingsInfo.innerHTML = `
+    <div class="info-box" style="display:block;margin-top:0">
+      <div class="info-title">Score Guide</div>
+      <div class="legend">
+        ${[1,2,3,4,5].map(s => `
+          <div class="legend-item">
+            <button class="legend-dot circle" onclick="konamiPress(${s})" style="background:${scoreSolid(s)};color:${scoreText(s)};border:none;cursor:default;font-family:inherit">${s}</button>
+            <div class="legend-lbl">${SCORE_LABELS[s]}</div>
+          </div>`).join('')}
+      </div>
+      <div>
+        <strong style="color:#555">Scoring:</strong> starts at 5, deductions for rain, condensation (concrete cools 1–3.5 °C below air on clear nights), humidity. Bonuses for wind and post-sunrise solar drying.
+      </div>
+      <div style="margin-top:14px">
+        <strong style="color:#555">Conditions:</strong>
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-family:'Noto Emoji',sans-serif;font-size:0.9rem">\u2744\uFE0E</span> <span>Frost</span></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-family:'Noto Emoji',sans-serif;font-size:0.9rem">\u26C8\uFE0E</span> <span>Rain</span></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-family:'Noto Emoji',sans-serif;font-size:0.9rem">\uD83E\uDEDF\uFE0E</span> <span>Wet</span></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-family:'Noto Emoji',sans-serif;font-size:0.9rem">\uD83D\uDCA7\uFE0E</span> <span>Dew</span></div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-family:'Noto Emoji',sans-serif;font-size:0.9rem">\uD83C\uDFC4\uFE0E</span> <span>GO!</span></div>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <strong style="color:#555">Forecast blend:</strong>
+        <div class="sources-row">${sourcePills}</div>
+        <div style="margin-top:6px;color:#555;font-size:0.6rem">Weights re-normalise if a source is unavailable. SMHI and YR only cover Scandinavia.</div>
+      </div>
+    </div>`;
+
+  updateAdminUI();
+}
+</script>
+</body>
+</html>

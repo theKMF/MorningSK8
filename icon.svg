@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="96" fill="#e8500a"/>
+  <!-- Deck – side profile, rectangle with rounded ends -->
+  <rect x="64" y="192" width="384" height="52" rx="26" fill="white"/>
+  <!-- Front truck -->
+  <rect x="92" y="240" width="96" height="24" rx="10" fill="rgba(255,255,255,0.45)"/>
+  <!-- Rear truck -->
+  <rect x="324" y="240" width="96" height="24" rx="10" fill="rgba(255,255,255,0.45)"/>
+  <!-- Front wheel -->
+  <circle cx="140" cy="298" r="46" fill="white"/>
+  <circle cx="140" cy="298" r="18" fill="#e8500a"/>
+  <!-- Rear wheel -->
+  <circle cx="372" cy="298" r="46" fill="white"/>
+  <circle cx="372" cy="298" r="18" fill="#e8500a"/>
+</svg>
