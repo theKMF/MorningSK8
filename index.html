@@ -119,7 +119,32 @@
       clip-path: polygon(0% 0%, 100% 0%, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0% 100%);
     }
     body.cf-mode .day-row > * { position: relative; z-index: 1; }
-    body.cf-mode .next-time { color: #FF00FF; }
+    body.cf-mode .card { border-left: none !important; position: relative; }
+    body.cf-mode .card::before {
+      content: ''; position: absolute; top: 0; left: -40px; bottom: 0; width: 45px;
+      background: var(--card-score-color);
+      transform: skewX(-30deg);
+      transform-origin: bottom left;
+      z-index: 0;
+    }
+    body.cf-mode .card > * { position: relative; z-index: 1; }
+    body.cf-mode .card-time { background: #fff; padding: 3px; margin: -3px; }
+    body.cf-mode .card::after {
+      content: ''; position: absolute; top: 0; left: 10px; bottom: 0; width: 5px;
+      background: var(--card-score-color);
+      transform: skewX(-30deg);
+      transform-origin: bottom left;
+      z-index: 0;
+    }
+    body.cf-mode .next-time { visibility: hidden; }
+    #cfTitleOverlay {
+      display: none; position: fixed; left: 0; right: 0;
+      text-align: center; pointer-events: none; z-index: 0;
+      font-family: var(--font-cap); font-size: 2.4rem; font-weight: 400;
+      letter-spacing: -1px; line-height: 1;
+      color: #00FFFF; mix-blend-mode: exclusion;
+    }
+    body.cf-mode #cfTitleOverlay { display: block; }
     body.cf-mode .tagline,
     body.cf-mode #locDisplay,
     body.cf-mode #locChipName { color: #000 !important; }
@@ -557,6 +582,7 @@
 <div id="ptr">↓</div>
 
 <canvas id="cfCanvas"></canvas>
+<div id="cfTitleOverlay"></div>
 <div class="wrap" id="mainWrap">
 
   <header>
@@ -742,6 +768,9 @@ function generateHexBg() {
   canvas.height = window.innerHeight;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const W = canvas.width, H = canvas.height;
+  // Fill with yellow so exclusion compositing has something to blend against
+  ctx.fillStyle = '#FFE500';
+  ctx.fillRect(0, 0, W, H);
   const originX = 0, originY = H;
   function rand(a, b) { return Math.random() * (b - a) + a; }
   function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
@@ -780,7 +809,20 @@ function generateHexBg() {
     }
   }
 }
-window.addEventListener('resize', () => { if (document.body.classList.contains('cf-mode')) generateHexBg(); });
+function syncCfOverlay() {
+  const src = document.getElementById('nextSkateTime');
+  const ov = document.getElementById('cfTitleOverlay');
+  if (!src || !ov) return;
+  ov.textContent = src.textContent;
+  const rect = src.getBoundingClientRect();
+  ov.style.top = rect.top + 'px';
+  ov.style.left = '0';
+  ov.style.right = '0';
+  ov.style.height = rect.height + 'px';
+}
+window.addEventListener('resize', () => {
+  if (document.body.classList.contains('cf-mode')) { generateHexBg(); syncCfOverlay(); }
+});
 
 function setBadgeShape(shape) {
   localStorage.setItem('sk8shape', shape);
@@ -1556,6 +1598,7 @@ function makeCard(slot, tz) {
   const card = document.createElement('div');
   card.className = 'card';
   card.style.borderLeftColor = scoreSolid(sc);
+  card.style.setProperty('--card-score-color', scoreSolid(sc));
   card.style.cursor = 'pointer';
   card.innerHTML = `
     <div class="card-time">${displayTime(slotTime, tz)}</div>
@@ -1939,6 +1982,7 @@ function render(omData, sources, sourcePills = '', openDays = null) {
     } else {
       nextEl.textContent = 'No good windows';
     }
+    syncCfOverlay();
   }
 
   // Populate settings info panel
